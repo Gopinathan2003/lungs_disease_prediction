@@ -1,0 +1,20 @@
+# Supported Python: 3.10-3.13
+# This dependency set is not compatible with Python 3.14.
+# Notable blockers:
+# - Pillow==10.3.0 predates Python 3.14 wheels/support
+# - numpy==1.26.4 and pandas==2.2.2 are 2024-era pins
+# - apache-airflow==2.9.3 requires Python <3.14
+mlflow
+fastapi
+uvicorn[standard]
+torch
+torchvision
+Pillow
+numpy
+pandas
+scikit-learn
+prometheus-client
+dvc
+apache-airflow
+apache-airflow-providers-http
+python-multipart
