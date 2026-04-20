@@ -1,0 +1,5 @@
+name: lung-disease
+python_env: requirements.txt
+entry_points:
+  main:
+    command: "python src/models/train.py"

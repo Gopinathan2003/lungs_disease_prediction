@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import time
 from pathlib import Path
 
@@ -19,6 +20,7 @@ DEFAULT_LABELS = [
     "VIRAL_PNEUMONIA",
 ]
 BASELINE_STATS_PATH = Path("data/processed/baseline_stats.json")
+MODEL_URI = os.getenv("MODEL_URI", "models/latest")
 
 app = FastAPI(title="Lung Disease Prediction API")
 app.add_middleware(
@@ -52,8 +54,9 @@ PREPROCESS = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
 
-# Load latest MLflow model (change RUN_ID after training if needed)
-model = mlflow.pyfunc.load_model("models:/lung_disease_model/latest")
+# Prefer a local packaged model when running in Docker; MODEL_URI can still be
+# overridden for registry-backed deployments.
+model = mlflow.pyfunc.load_model(MODEL_URI)
 
 
 def decode_prediction(raw_prediction):
@@ -86,7 +89,7 @@ async def health():
 
 @app.get("/ready")
 async def ready():
-    return {"status": "ready", "labels": LABELS}
+    return {"status": "ready", "labels": LABELS, "model_uri": MODEL_URI}
 
 
 @app.post("/predict")
