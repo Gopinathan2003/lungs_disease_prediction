@@ -14,6 +14,7 @@ numpy
 pandas
 scikit-learn
 prometheus-client
+matplotlib
 dvc
 apache-airflow
 apache-airflow-providers-http

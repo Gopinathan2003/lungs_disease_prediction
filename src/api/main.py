@@ -9,7 +9,7 @@ import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
-from prometheus_client import Counter, Histogram, start_http_server
+from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 from torchvision import transforms
 
 DEFAULT_LABELS = [
@@ -21,6 +21,7 @@ DEFAULT_LABELS = [
 ]
 BASELINE_STATS_PATH = Path("data/processed/baseline_stats.json")
 MODEL_URI = os.getenv("MODEL_URI", "models/latest")
+APP_START_TIME = time.time()
 
 app = FastAPI(title="Lung Disease Prediction API")
 app.add_middleware(
@@ -32,9 +33,15 @@ app.add_middleware(
 )
 
 # Prometheus
-PREDICTIONS = Counter("predictions_total", "Total predictions")
-LATENCY = Histogram("prediction_latency_seconds", "Prediction latency")
-REQUESTS = Counter("http_requests_total", "Total HTTP requests")
+REQUESTS = Counter("lung_http_requests_total", "Total HTTP requests", ["endpoint", "method", "status"])
+PREDICTIONS = Counter("lung_predictions_total", "Total successful predictions")
+PREDICTION_FAILURES = Counter("lung_prediction_failures_total", "Total failed prediction attempts", ["reason"])
+LATENCY = Histogram("lung_prediction_latency_seconds", "Prediction latency")
+MODEL_READY = Gauge("lung_model_ready", "Model readiness gauge")
+LAST_SUCCESSFUL_PREDICTION = Gauge("lung_last_successful_prediction_timestamp", "Unix timestamp of last successful prediction")
+APP_UPTIME = Gauge("lung_app_uptime_seconds", "API uptime in seconds")
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 
 def load_labels():
@@ -56,7 +63,12 @@ PREPROCESS = transforms.Compose([
 
 # Prefer a local packaged model when running in Docker; MODEL_URI can still be
 # overridden for registry-backed deployments.
-model = mlflow.pyfunc.load_model(MODEL_URI)
+model = None
+try:
+    model = mlflow.pyfunc.load_model(MODEL_URI)
+    MODEL_READY.set(1)
+except Exception:
+    MODEL_READY.set(0)
 
 
 def decode_prediction(raw_prediction):
@@ -84,35 +96,58 @@ def decode_prediction(raw_prediction):
 
 @app.get("/health")
 async def health():
+    APP_UPTIME.set(time.time() - APP_START_TIME)
+    REQUESTS.labels(endpoint="/health", method="GET", status="200").inc()
     return {"status": "healthy"}
 
 
 @app.get("/ready")
 async def ready():
+    APP_UPTIME.set(time.time() - APP_START_TIME)
+    if model is None:
+        REQUESTS.labels(endpoint="/ready", method="GET", status="503").inc()
+        raise HTTPException(503, "Model is not ready")
+    REQUESTS.labels(endpoint="/ready", method="GET", status="200").inc()
     return {"status": "ready", "labels": LABELS, "model_uri": MODEL_URI}
 
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     start = time.time()
-    REQUESTS.inc()
+    APP_UPTIME.set(time.time() - APP_START_TIME)
+
+    if model is None:
+        PREDICTION_FAILURES.labels(reason="model_not_ready").inc()
+        REQUESTS.labels(endpoint="/predict", method="POST", status="503").inc()
+        raise HTTPException(503, "Model is not loaded")
 
     if not file.content_type or not file.content_type.startswith("image"):
+        PREDICTION_FAILURES.labels(reason="invalid_content_type").inc()
+        REQUESTS.labels(endpoint="/predict", method="POST", status="400").inc()
         raise HTTPException(400, "Image file required")
 
     content = await file.read()
     try:
         image = Image.open(io.BytesIO(content)).convert("RGB")
     except UnidentifiedImageError as exc:
+        PREDICTION_FAILURES.labels(reason="invalid_image").inc()
+        REQUESTS.labels(endpoint="/predict", method="POST", status="400").inc()
         raise HTTPException(400, "Invalid image file") from exc
 
-    tensor = PREPROCESS(image).unsqueeze(0)
-    raw_prediction = model.predict(tensor.numpy())
-    prediction, confidence = decode_prediction(raw_prediction)
+    try:
+        tensor = PREPROCESS(image).unsqueeze(0)
+        raw_prediction = model.predict(tensor.numpy())
+        prediction, confidence = decode_prediction(raw_prediction)
+    except Exception as exc:
+        PREDICTION_FAILURES.labels(reason="inference_error").inc()
+        REQUESTS.labels(endpoint="/predict", method="POST", status="500").inc()
+        raise HTTPException(500, f"Inference failed: {exc}") from exc
 
     latency = time.time() - start
     LATENCY.observe(latency)
     PREDICTIONS.inc()
+    LAST_SUCCESSFUL_PREDICTION.set(time.time())
+    REQUESTS.labels(endpoint="/predict", method="POST", status="200").inc()
 
     return {
         "prediction": prediction,
@@ -123,7 +158,6 @@ async def predict(file: UploadFile = File(...)):
 
 
 if __name__ == "__main__":
-    start_http_server(8001)
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=False)

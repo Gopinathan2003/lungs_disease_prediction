@@ -13,6 +13,7 @@ services:
     build:
       context: .
       dockerfile: dockerfile
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     depends_on:
@@ -22,6 +23,21 @@ services:
     volumes:
       - ./models:/app/models:ro
       - ./data:/app/data:ro
+
+  airflow:
+    image: apache/airflow:2.9.3-python3.11
+    command: bash -lc "pip install -r /opt/airflow/project/requirements.txt && airflow standalone"
+    ports:
+      - "8088:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+      - AIRFLOW_HOME=/opt/airflow
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./:/opt/airflow/project
 
   frontend:
     image: nginx:alpine
@@ -34,8 +50,29 @@ services:
     image: prom/prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml
     ports:
       - "9090:9090"
+    depends_on:
+      - api
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--config.expand-env"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+    environment:
+      - MAILTRAP_SMTP_HOST=${MAILTRAP_SMTP_HOST:-sandbox.smtp.mailtrap.io}
+      - MAILTRAP_SMTP_PORT=${MAILTRAP_SMTP_PORT:-2525}
+      - MAILTRAP_SMTP_USERNAME=${MAILTRAP_SMTP_USERNAME:-change-me}
+      - MAILTRAP_SMTP_PASSWORD=${MAILTRAP_SMTP_PASSWORD:-change-me}
+      - ALERT_FROM_EMAIL=${ALERT_FROM_EMAIL:-alerts@example.com}
+      - ALERT_TO_EMAIL=${ALERT_TO_EMAIL:-mlops-team@example.com}
 
   grafana:
     image: grafana/grafana

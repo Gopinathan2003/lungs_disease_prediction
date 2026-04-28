@@ -1,0 +1,38 @@
+groups:
+  - name: lung-disease-alerts
+    rules:
+      - alert: LungApiDown
+        expr: up{job="lung-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Lung disease API is down
+          description: Prometheus cannot scrape the FastAPI prediction service for more than 1 minute.
+
+      - alert: ModelNotReady
+        expr: lung_model_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Lung disease model is not ready
+          description: The API reports that the MLflow model is not loaded or serving is unavailable.
+
+      - alert: HighPredictionFailureRate
+        expr: increase(lung_prediction_failures_total[5m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Prediction failures are increasing
+          description: More than 3 prediction failures were recorded in the last 5 minutes.
+
+      - alert: HighPredictionLatency
+        expr: histogram_quantile(0.95, sum(rate(lung_prediction_latency_seconds_bucket[5m])) by (le)) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Prediction latency is high
+          description: The p95 prediction latency has been above 2 seconds for the last 10 minutes.
