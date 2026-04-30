@@ -2,7 +2,7 @@ groups:
   - name: lung-disease-alerts
     rules:
       - alert: LungApiDown
-        expr: up{job="lung-api"} == 0
+        expr: up{job="lung-api", instance="localhost:8000"} == 0
         for: 1m
         labels:
           severity: critical

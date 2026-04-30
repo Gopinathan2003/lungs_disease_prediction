@@ -140,8 +140,10 @@ def export_model(model):
 def train():
     with mlflow.start_run(run_name="resnet18-transfer"):
         # Log Git commit for reproducibility
-
-        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+        try:
+            commit = subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            commit = "unavailable"
         mlflow.log_param("git_commit", commit)
 
         # Data

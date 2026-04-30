@@ -8,8 +8,9 @@ import mlflow.pyfunc
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
-from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from torchvision import transforms
 
 DEFAULT_LABELS = [
@@ -40,8 +41,6 @@ LATENCY = Histogram("lung_prediction_latency_seconds", "Prediction latency")
 MODEL_READY = Gauge("lung_model_ready", "Model readiness gauge")
 LAST_SUCCESSFUL_PREDICTION = Gauge("lung_last_successful_prediction_timestamp", "Unix timestamp of last successful prediction")
 APP_UPTIME = Gauge("lung_app_uptime_seconds", "API uptime in seconds")
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
 
 
 def load_labels():
@@ -99,6 +98,11 @@ async def health():
     APP_UPTIME.set(time.time() - APP_START_TIME)
     REQUESTS.labels(endpoint="/health", method="GET", status="200").inc()
     return {"status": "healthy"}
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/ready")
@@ -160,4 +164,4 @@ async def predict(file: UploadFile = File(...)):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
