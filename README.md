@@ -1,326 +1,523 @@
-# Lung Disease Prediction using Chest X-Rays | MLOps Project
+# Lung Disease Prediction from Chest X-Rays
 
-An end-to-end AI application for detecting lung diseases from Chest X-Ray images with full MLOps implementation. Built with emphasis on automation, reproducibility, monitoring, and production readiness.
+An end-to-end MLOps project that predicts lung disease classes from chest X-ray images. The project includes model training, experiment tracking, API serving, a small web UI, orchestration with Airflow, and monitoring with Prometheus and Grafana.
 
----
+This project is for learning and demonstration. It is not a medical diagnosis tool.
 
-## 📋 Project Overview
+![Project pipeline](images/pipeline.png)
 
-This project demonstrates a complete AI Product Lifecycle following strict MLOps principles:
+## What This Project Does
 
-- Automated data pipeline
-- Reproducible model training & experimentation
-- Containerized deployment (Docker + Docker Compose)
-- Real-time model serving
-- Monitoring with Prometheus, Grafana & Alertmanager
-- Experiment tracking with MLflow
-- Version control using Git + DVC
-- Pipeline orchestration with Apache Airflow
+The application accepts a chest X-ray image and predicts one of these classes:
 
-### Problem Statement
-Multi-class classification of Chest X-Ray images into:
-- Normal
-- Bacterial Pneumonia
-- Viral Pneumonia
-- Tuberculosis
-- Corona Virus Disease
+| Class |
+|-------|
+| Normal |
+| Bacterial Pneumonia |
+| Viral Pneumonia |
+| Tuberculosis |
+| Corona Virus Disease |
 
-### Key Metrics
-| Metric | Target |
-|--------|--------|
-| ML Metrics | F1-Score ≥ 0.90, Accuracy ≥ 0.92 |
-| Business Metrics | Inference latency < 200ms |
+The full workflow is:
 
----
+1. Prepare raw chest X-ray images.
+2. Build processed datasets and baseline statistics.
+3. Train a ResNet18 transfer-learning model.
+4. Track experiments and model versions in MLflow.
+5. Serve predictions through FastAPI.
+6. Use a browser UI to upload images and see predictions.
+7. Monitor API/model health with Prometheus and Grafana.
+8. Run the training pipeline through Airflow.
 
-## 🛠️ Technology Stack
+## Screenshots
 
-| Category | Technology |
-|----------|------------|
-| Language | Python 3.11 |
-| Model | ResNet18 (Transfer Learning) |
-| Experiment Tracking | MLflow |
-| Pipeline | DVC + Airflow |
+### Web Application
+
+Use this page to upload an X-ray and call the FastAPI prediction endpoint.
+
+![Web application](images/ui.png)
+
+### MLflow Experiment Tracking
+
+MLflow stores training parameters, metrics, artifacts, and registered model versions.
+
+![MLflow dashboard](images/mlflow.png)
+
+### Airflow Pipeline
+
+Airflow orchestrates the data ingestion, feature building, and model training DAG.
+
+![Airflow DAG](images/airflow.png)
+
+### Prometheus Metrics
+
+Prometheus scrapes the API metrics endpoint and stores operational metrics.
+
+![Prometheus targets](images/prometheus.png)
+
+### Grafana Dashboard
+
+Grafana visualizes API availability, request rate, prediction latency, failures, and model readiness.
+
+![Grafana dashboard](images/grafana.png)
+
+## Technology Stack
+
+| Area | Tool |
+|------|------|
+| Language | Python |
+| Deep Learning | PyTorch, TorchVision |
+| Model | ResNet18 transfer learning |
 | API | FastAPI |
-| Model Serving | MLflow Model Server |
-| Frontend | HTML + Bootstrap + JavaScript |
-| Monitoring | Prometheus + Grafana + Alertmanager |
-| Version Control | Git + DVC + Git LFS |
-| Orchestration | Apache Airflow |
-| Containerization | Docker + Docker Compose |
+| Frontend | HTML, Bootstrap, JavaScript |
+| Experiment Tracking | MLflow |
+| Pipeline Orchestration | Apache Airflow |
+| Data Pipeline | DVC |
+| Monitoring | Prometheus, Grafana, Alertmanager |
+| Containerization | Docker, Docker Compose |
 
----
+## Project Structure
 
-## 📁 Project Structure
-
-```
+```text
 lungs_disease_prediction/
-├── data/
-│   ├── raw/                    # Raw chest X-ray dataset
-│   │   └── chest_xray/
-│   │       ├── train/
-│   │       ├── test/
-│   │       └── val/
-│   └── processed/              # Preprocessed data + metadata
-│       ├── train/
-│       ├── test/
-│       └── val/
-├── src/
-│   ├── data/                   # Data ingestion
-│   │   └── ingestion.py
-│   ├── features/               # Feature engineering + baseline stats
-│   │   └── build_features.py
-│   ├── models/                 # Training script
-│   │   └── train.py
-│   └── api/                    # FastAPI backend
-│       └── main.py
-├── frontend/                   # Static web UI
-│   └── index.html
 ├── airflow/
-│   ├── dags/                   # Airflow pipelines
-│   │   └── ml_pipeline.py
-│   └── config/
-│       └── airflow.cfg
-├── prometheus/                 # Prometheus configuration
-│   ├── prometheus.yml
-│   └── alerts.yml
-├── grafana/                    # Grafana dashboards
-│   └── provisioning/
-│       ├── dashboards/
-│       └── datasources/
-├── alertmanager/               # Alertmanager configuration
+│   └── dags/
+│       └── ml_pipeline.py
+├── alertmanager/
 │   └── alertmanager.yml
-├── models/                     # Trained model artifacts
+├── data/
+│   ├── raw/
+│   └── processed/
+├── frontend/
+│   └── index.html
+├── grafana/
+│   └── provisioning/
+├── images/
+│   ├── airflow.png
+│   ├── grafana.png
+│   ├── mlflow.png
+│   ├── pipeline.png
+│   ├── prometheus.png
+│   └── ui.png
+├── mlruns/
+├── models/
 │   └── latest/
-├── mlruns/                     # MLflow experiment logs
-├── tests/                      # Unit and integration tests
-├── docs/                       # Documentation
-│   ├── architecture.md
-│   ├── HLD.md
-│   ├── LLD.md
-│   ├── test_plan.md
-│   ├── user_manual.md
-│   └── project_report.md
-├── dvc.yaml                    # DVC pipeline definition
-├── MLProject                   # MLflow project definition
-├── docker-compose.yml          # Docker Compose orchestration
-├── dockerfile                  # Docker image definition
-├── requirements.txt            # Python dependencies
-├── requirements-serving.txt    # Model serving dependencies
+├── prometheus/
+│   ├── alerts.yml
+│   ├── prometheus.yml
+│   └── prometheus.docker.yml
+├── src/
+│   ├── api/
+│   │   └── main.py
+│   ├── data/
+│   │   └── ingestion.py
+│   ├── features/
+│   │   └── build_features.py
+│   └── models/
+│       └── train.py
+├── docker-compose.yml
+├── dockerfile
+├── dockerfile.airflow
+├── requirements.txt
+├── requirements-serving.txt
+├── requirements-airflow.txt
 └── README.md
 ```
 
----
+## Prerequisites
 
-## 🚀 Quick Start
+Install these before running the project:
 
-### Option 1: Using Docker Compose (Recommended)
+| Requirement | Why |
+|-------------|-----|
+| Python 3.10 to 3.13 | Run training, API, and local tools |
+| Docker | Run services in containers |
+| docker-compose | Start all services together |
+| Git | Clone and version the project |
+| DVC | Reproduce data pipeline, if using DVC locally |
 
-1. **Clone the Repository**
-   ```bash
-   git clone <your-repo-url>
-   cd lungs_disease_prediction
-   ```
-
-2. **Setup Environment Variables**
-   ```bash
-   cp .env.example .env
-   # Fill in the Mailtrap SMTP credentials for email notifications
-   ```
-
-3. **Train the Model**
-   ```bash
-   python src/models/train.py
-   ```
-   Or use Airflow DAG: `http://localhost:8088`
-
-4. **Start All Services**
-   ```bash
-   docker compose up --build
-   ```
-
-### Option 2: Without Docker
-
-1. **Clone the Repository**
-   ```bash
-   git clone <your-repo-url>
-   cd lungs_disease_prediction
-   ```
-
-2. **Setup Environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate        # Linux/Mac
-   # venv\Scripts\activate         # Windows
-
-   pip install -r requirements.txt
-   ```
-
-3. **Download Dataset**
-   Download the Chest X-Ray Images dataset from Kaggle and place it in:
-   ```
-   data/raw/chest_xray/
-   ```
-
-4. **Run DVC Pipeline**
-   ```bash
-   dvc repro
-   ```
-
-5. **Train the Model**
-   ```bash
-   python src/models/train.py
-   ```
-   Copy the Run ID shown after training.
-
-6. **Start Services (in separate terminals)**
-
-   **Terminal 1: MLflow UI**
-   ```bash
-   mlflow ui --host 0.0.0.0 --port 5000
-   ```
-
-   **Terminal 2: MLflow Model Server**
-   ```bash
-   mlflow models serve -m "runs:/<YOUR_RUN_ID_HERE>/model" -p 8080 --host 0.0.0.0 --no-conda
-   ```
-
-   **Terminal 3: FastAPI Backend**
-   ```bash
-   cd src/api
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-   **Terminal 4: Frontend**
-   ```bash
-   cd frontend
-   python -m http.server 8081
-   ```
-
-   **Terminal 5: Airflow (Optional)**
-   ```bash
-   airflow webserver -p 8088
-   ```
-
----
-
-## 🌐 Access Points
-
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Web Application | http://localhost:8081 | User Interface |
-| API Documentation | http://localhost:8000/docs | Swagger UI |
-| MLflow Dashboard | http://localhost:5000 | Experiment Tracking |
-| Prometheus | http://localhost:9090 | Metrics & Alerts |
-| Grafana | http://localhost:3000 | Visualization & Alerts |
-| Airflow | http://localhost:8088 | Pipeline Orchestration |
-| Alertmanager | http://localhost:9093 | Alert Management |
-
----
-
-## 📊 How to Test the Application
-
-1. **Open the Web UI** → http://localhost:8081
-2. **Upload a Chest X-Ray image** (JPEG/PNG)
-3. **Click Predict**
-4. **View prediction** (Normal / Pneumonia / Tuberculosis / Corona Virus), confidence, and latency
-5. **Check MLflow** for experiment logs at http://localhost:5000
-6. **Monitor metrics** at http://localhost:8000/metrics
-7. **View dashboards** in Grafana at http://localhost:3000
-
----
-
-## 🧪 Running Tests
+Check Docker and Compose:
 
 ```bash
-# Run unit tests
-python -m pytest tests/
-
-# View test report
-cat docs/test_report.md
+docker --version
+docker-compose --version
 ```
 
----
+This project is configured for the standalone command:
 
-## 📚 Documentation
-
-All required documents are available in the `/docs` folder:
-
-| Document | Description |
-|----------|-------------|
-| [architecture.md](docs/architecture.md) | Architecture Diagram with explanation |
-| [HLD.md](docs/HLD.md) | High-Level Design document |
-| [LLD.md](docs/LLD.md) | Low-Level Design with API endpoints |
-| [test_plan.md](docs/test_plan.md) | Test Plan & Test Cases |
-| [user_manual.md](docs/user_manual.md) | User Manual (for non-technical users) |
-| [project_report.md](docs/project_report.md) | Complete Project Report |
-
----
-
-## 🔄 MLOps Features Implemented
-
-| Feature | Implementation |
-|---------|----------------|
-| ✅ Reproducibility | Git commit hash + MLflow Run ID |
-| ✅ Automation | DVC pipeline for data & features |
-| ✅ Experiment Tracking | MLflow (metrics, params, artifacts, models) |
-| ✅ Model Versioning | MLflow Model Registry |
-| ✅ Data Versioning | DVC |
-| ✅ Monitoring | Prometheus instrumentation + Grafana dashboards |
-| ✅ Alerting | Alertmanager integration |
-| ✅ CI/CD Pipeline | DVC DAG + Airflow |
-| ✅ API | FastAPI with health & ready endpoints |
-| ✅ Loose Coupling | Frontend and Backend connected only via REST API |
-| ✅ Drift Baseline | Statistical baselines calculated during EDA |
-| ✅ Containerization | Docker + Docker Compose |
-| ✅ Pipeline Orchestration | Apache Airflow DAG |
-
----
-
-## 📈 Monitoring
-
-### Prometheus Metrics
-Prometheus metrics are exposed at:
+```bash
+docker-compose up --build
 ```
+
+If your machine has the newer Compose plugin, `docker compose up --build` may also work.
+
+## Dataset Setup
+
+Put the chest X-ray dataset here:
+
+```text
+data/raw/chest_xray/
+```
+
+Expected folder shape:
+
+```text
+data/raw/chest_xray/
+├── train/
+├── test/
+└── val/
+```
+
+Each split should contain class folders with images inside them. The training script reads these folders using `torchvision.datasets.ImageFolder`.
+
+## Quick Start with Docker
+
+Use Docker if you want the easiest way to run all services.
+
+### 1. Clone the Project
+
+```bash
+git clone <your-repo-url>
+cd lungs_disease_prediction
+```
+
+### 2. Create the Environment File
+
+```bash
+cp .env.example .env
+sed -i "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$(id -u)/" .env
+```
+
+The `AIRFLOW_UID` value helps Airflow write logs and files correctly on Linux bind mounts.
+
+Mailtrap values in `.env` are only needed if you want email alerts from Alertmanager.
+
+### 3. Train or Provide a Model
+
+The API expects a local model at:
+
+```text
+models/latest/
+```
+
+If the folder does not exist yet, train the model:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python src/models/train.py
+```
+
+Training creates:
+
+```text
+models/latest/
+mlruns/
+```
+
+### 4. Stop Manual Services on the Same Ports
+
+If you previously started services manually, stop them before running Docker Compose. These ports are used:
+
+| Service | Port |
+|---------|------|
+| Airflow | 8080 |
+| API | 8000 |
+| Frontend | 8001 |
+| MLflow UI | 5000 |
+| MLflow model server | 5001 |
+| Prometheus | 9090 |
+| Grafana | 3001 |
+| Alertmanager | 9093 |
+
+### 5. Start Everything
+
+```bash
+sudo docker-compose up --build
+```
+
+If you hit the Docker Compose v1 error `KeyError: 'ContainerConfig'`, run:
+
+```bash
+sudo ./scripts/compose-up-clean.sh
+```
+
+That script runs `docker-compose down --remove-orphans` and then recreates the stack.
+
+## Service URLs
+
+| Service | URL | What to Use It For |
+|---------|-----|--------------------|
+| Web UI | http://localhost:8001 | Upload X-ray images |
+| API docs | http://localhost:8000/docs | Test API endpoints |
+| API metrics | http://localhost:8000/metrics | Raw Prometheus metrics |
+| MLflow UI | http://localhost:5000 | View experiments and models |
+| MLflow model server | http://localhost:5001 | Direct model serving endpoint |
+| Airflow | http://localhost:8080 | Run or inspect the DAG |
+| Prometheus | http://localhost:9090 | Inspect scraped metrics |
+| Grafana | http://localhost:3001 | View monitoring dashboards |
+| Alertmanager | http://localhost:9093 | View configured alerts |
+
+## Login Notes
+
+### Grafana
+
+Default Docker login:
+
+```text
+username: admin
+password: admin
+```
+
+### Airflow
+
+Airflow standalone prints the generated login details in its container logs. To inspect them:
+
+```bash
+sudo docker-compose logs airflow --tail=200
+```
+
+## How to Test the Running App
+
+1. Open the web UI: http://localhost:8001
+2. Upload a chest X-ray image.
+3. Click `Predict`.
+4. Confirm that the page returns a class, confidence score, and latency.
+5. Open API docs: http://localhost:8000/docs
+6. Check API readiness: http://localhost:8000/ready
+7. Check metrics: http://localhost:8000/metrics
+8. Open Grafana: http://localhost:3001
+9. Open MLflow: http://localhost:5000
+10. Open Airflow: http://localhost:8080
+
+## Run Without Docker
+
+Use this path if you want to learn each component separately.
+
+### 1. Create Python Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Prepare Data and Train
+
+```bash
+dvc repro
+python src/models/train.py
+```
+
+If you do not use DVC, make sure your dataset is already available under `data/raw/chest_xray/`, then run:
+
+```bash
+python src/data/ingestion.py
+python src/features/build_features.py
+python src/models/train.py
+```
+
+### 3. Start Services in Separate Terminals
+
+Terminal 1:
+
+```bash
+mlflow ui --host 0.0.0.0 --port 5000
+```
+
+Terminal 2:
+
+```bash
+mlflow models serve -m models:/lung_disease_model/latest -p 5001 --host 0.0.0.0 --no-conda
+```
+
+Terminal 3:
+
+```bash
+python3 src/api/main.py
+```
+
+Terminal 4:
+
+```bash
+prometheus --config.file=prometheus/prometheus.yml
+```
+
+Terminal 5:
+
+```bash
+airflow standalone
+```
+
+Terminal 6:
+
+```bash
+cd frontend
+python3 -m http.server 8001
+```
+
+## Airflow DAG
+
+The DAG file is:
+
+```text
+airflow/dags/ml_pipeline.py
+```
+
+It runs three tasks:
+
+| Task | Script |
+|------|--------|
+| `ingest_data` | `python -m src.data.ingestion` |
+| `build_features` | `python -m src.features.build_features` |
+| `train_model` | `python -m src.models.train` |
+
+In the Airflow UI, look for:
+
+```text
+lung_disease_training_pipeline
+```
+
+If the DAG is not visible, check import errors:
+
+```bash
+sudo docker-compose logs airflow --tail=200
+```
+
+## Monitoring
+
+The API exposes Prometheus metrics at:
+
+```text
 http://localhost:8000/metrics
 ```
 
-### Key Metrics Tracked
-- `total_predictions` - Total number of predictions made
-- `prediction_latency_seconds` - Inference latency histogram
-- `http_requests_total` - HTTP request count by status
-- `model_ready` - Model availability status
-- `prediction_failures_total` - Failed prediction count
+Important metrics include:
 
-### Grafana Dashboards
-Pre-configured dashboards for:
-- API Performance
-- Model Metrics
-- Prediction Statistics
-- System Health
+| Metric | Meaning |
+|--------|---------|
+| `lung_http_requests_total` | API request count |
+| `lung_predictions_total` | Successful predictions |
+| `lung_prediction_failures_total` | Failed predictions |
+| `lung_prediction_latency_seconds` | Prediction latency |
+| `lung_model_ready` | Whether the model loaded successfully |
+| `lung_app_uptime_seconds` | API uptime |
 
-### Alertmanager Alerts
-Configured alerts for:
-- API downtime
-- Model readiness issues
-- Prediction failures
-- High latency (>200ms)
+Prometheus scrapes these metrics, and Grafana displays them in the provisioned dashboard.
 
----
+## Docker Services
 
-## 🐳 Docker Services
+| Compose Service | Purpose | Host Port |
+|-----------------|---------|-----------|
+| `api` | FastAPI prediction API | 8000 |
+| `frontend` | Static web application | 8001 |
+| `mlflow` | MLflow experiment UI | 5000 |
+| `model_server` | MLflow model serving | 5001 |
+| `airflow` | Airflow standalone server | 8080 |
+| `prometheus` | Metrics collection | 9090 |
+| `grafana` | Metrics dashboards | 3001 |
+| `alertmanager` | Alert handling | 9093 |
 
-The `docker-compose.yml` includes the following services:
+Useful commands:
 
-| Service | Description | Port |
-|---------|-------------|------|
-| api | FastAPI application | 8000 |
-| frontend | Web UI | 8081 |
-| mlflow | MLflow tracking server | 5000 |
-| prometheus | Metrics collection | 9090 |
-| grafana | Visualization | 3000 |
-| airflow-webserver | Airflow UI | 8088 |
-| airflow-scheduler | Airflow scheduler | - |
-| alertmanager | Alert management | 9093 |
+```bash
+sudo docker-compose ps
+sudo docker-compose logs airflow --tail=120
+sudo docker-compose logs api --tail=120
+sudo docker-compose down --remove-orphans
+sudo ./scripts/compose-up-clean.sh
+```
 
----
+## Troubleshooting
+
+### Port Is Already in Use
+
+If Docker says `bind: address already in use`, another service is already using that port.
+
+Find the process:
+
+```bash
+sudo lsof -i :8080
+sudo lsof -i :3001
+```
+
+Stop the process or change the host port in `docker-compose.yml`.
+
+### Docker Compose Shows `KeyError: 'ContainerConfig'`
+
+This can happen with `docker-compose` v1.29.2 and newer Docker versions when recreating containers.
+
+Fix:
+
+```bash
+sudo ./scripts/compose-up-clean.sh
+```
+
+### Airflow Does Not Start
+
+Check logs:
+
+```bash
+sudo docker-compose logs airflow --tail=200
+```
+
+Then rebuild only Airflow:
+
+```bash
+sudo docker-compose build --no-cache airflow
+sudo docker-compose up --force-recreate airflow
+```
+
+### API Says Model Is Not Ready
+
+Check that this folder exists:
+
+```text
+models/latest/
+```
+
+If it is missing, train the model:
+
+```bash
+python src/models/train.py
+```
+
+Then restart the API container:
+
+```bash
+sudo docker-compose restart api
+```
+
+### Grafana Dashboard Is Empty
+
+First check the API metrics:
+
+```text
+http://localhost:8000/metrics
+```
+
+Then check Prometheus targets:
+
+```text
+http://localhost:9090/targets
+```
+
+If `lung-api` is down, inspect the API logs:
+
+```bash
+sudo docker-compose logs api --tail=120
+```
+
+
+## Summary
+
+This repository demonstrates a complete beginner-friendly MLOps workflow:
+
+1. Train a PyTorch image classifier.
+2. Track experiments with MLflow.
+3. Serve predictions with FastAPI.
+4. Use a simple browser UI.
+5. Orchestrate training with Airflow.
+6. Monitor production behavior with Prometheus and Grafana.
+7. Run the whole stack with Docker Compose.

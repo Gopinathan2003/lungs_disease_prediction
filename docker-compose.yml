@@ -1,14 +1,29 @@
+version: "3.8"
+
 services:
+  mlflow:
+    image: lungs-disease-app:latest
+    build:
+      context: .
+      dockerfile: dockerfile
+    command: mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri file:/home/gopuu/Project/lungs_disease_prediction/mlruns
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/home/gopuu/Project/lungs_disease_prediction/mlruns
+
   model_server:
     image: lungs-disease-app:latest
     build:
       context: .
       dockerfile: dockerfile
-    command: mlflow models serve -m /models/latest -p 8080 --host 0.0.0.0 --no-conda
+    command: mlflow models serve -m models:/lung_disease_model/latest -p 5001 --host 0.0.0.0 --no-conda
+    environment:
+      - MLFLOW_TRACKING_URI=file:/home/gopuu/Project/lungs_disease_prediction/mlruns
     volumes:
-      - ./models:/models:ro
+      - ./mlruns:/home/gopuu/Project/lungs_disease_prediction/mlruns:ro
     ports:
-      - "8080:8080"
+      - "5001:5001"
 
   api:
     image: lungs-disease-app:latest
@@ -27,16 +42,22 @@ services:
       - ./data:/app/data:ro
 
   airflow:
-    image: apache/airflow:2.9.3-python3.11
-    command: bash -lc "pip install -r /opt/airflow/project/requirements.txt && airflow standalone"
+    image: lungs-disease-airflow:latest
+    build:
+      context: .
+      dockerfile: dockerfile.airflow
+    command: airflow standalone
+    user: "${AIRFLOW_UID:-1000}:0"
     ports:
-      - "8088:8080"
+      - "8080:8080"
     environment:
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
       - AIRFLOW_HOME=/opt/airflow
       - PROJECT_ROOT=/opt/airflow/project
+      - PIP_ROOT_USER_ACTION=ignore
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -47,12 +68,12 @@ services:
     volumes:
       - ./frontend:/usr/share/nginx/html
     ports:
-      - "8081:80"
+      - "8001:80"
 
   prometheus:
     image: prom/prometheus
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.docker.yml:/etc/prometheus/prometheus.yml
       - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml
     ports:
       - "9090:9090"
@@ -80,9 +101,10 @@ services:
   grafana:
     image: grafana/grafana
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:

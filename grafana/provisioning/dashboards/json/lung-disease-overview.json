@@ -99,7 +99,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "up{job=\"lung-api\", instance=\"localhost:8000\"}",
+          "expr": "up{job=\"lung-api\"}",
           "instant": true,
           "legendFormat": "",
           "range": false,

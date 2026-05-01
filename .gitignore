@@ -215,3 +215,4 @@ airflow/logs/
 /data
 mlflow.db
 models/latest/
+images/
